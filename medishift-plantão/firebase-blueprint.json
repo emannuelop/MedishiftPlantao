@@ -1,0 +1,67 @@
+{
+  "entities": {
+    "Patient": {
+      "title": "Patient",
+      "description": "Information about a patient in the facility.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Full name of the patient." },
+        "birthDate": { "type": "string", "description": "Date of birth of the patient (YYYY-MM-DD)." },
+        "active": { "type": "boolean", "description": "Whether the patient is currently admitted." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp when the patient was registered." }
+      },
+      "required": ["name", "birthDate", "active", "createdAt"]
+    },
+    "Handover": {
+      "title": "Nursing Handover",
+      "description": "Records details of a nursing shift handover for a patient.",
+      "type": "object",
+      "properties": {
+        "patientId": { "type": "string", "description": "Reference to the patient document ID." },
+        "patientName": { "type": "string", "description": "Name of the patient at the time of handover." },
+        "hadEvacuation": { "type": "boolean", "description": "Did the patient have an evacuation?" },
+        "tookSOSMedication": { "type": "boolean", "description": "Was SOS medication administered?" },
+        "sosMedicationName": { "type": "string", "description": "Name of the SOS medication if administered." },
+        "hadComplication": { "type": "boolean", "description": "Were there any complications during the shift?" },
+        "complicationDescription": { "type": "string", "description": "Description of the complication." },
+        "observations": { "type": "string", "description": "General shift observations." },
+        "professionalUid": { "type": "string", "description": "UID of the user who registered the handover." },
+        "professionalEmail": { "type": "string", "description": "Email of the user who registered the handover." },
+        "professionalName": { "type": "string", "description": "Name of the professional selected for the handover." },
+        "status": { "type": "string", "enum": ["Rascunho", "Publicada", "Cancelada"], "description": "The current lifecycle state of the handover." },
+        "publishedAt": { "type": "string", "format": "date-time", "description": "Timestamp of status transition to Publicada." },
+        "cancelledByUid": { "type": "string", "description": "UID of the user who cancelled the handover." },
+        "cancelledByName": { "type": "string", "description": "Name of the user who cancelled the handover." },
+        "cancelledByEmail": { "type": "string", "description": "Email of the user who cancelled the handover." },
+        "cancelledAt": { "type": "string", "format": "date-time", "description": "Timestamp when the handover was cancelled." },
+        "cancellationReason": { "type": "string", "description": "The reason for cancelling the handover." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp of the handover record." }
+      },
+      "required": ["patientId", "patientName", "hadEvacuation", "tookSOSMedication", "hadComplication", "observations", "professionalUid", "professionalEmail", "professionalName", "createdAt"]
+    },
+    "Professional": {
+      "title": "Nursing Professional",
+      "description": "List of available nursing professionals.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Full name of the professional." },
+        "active": { "type": "boolean", "description": "Whether the professional is currently active." }
+      },
+      "required": ["name", "active"]
+    }
+  },
+  "firestore": {
+    "patients": {
+      "schema": "Patient",
+      "description": "Collection of all patients."
+    },
+    "handovers": {
+      "schema": "Handover",
+      "description": "Collection of nursing handover records."
+    },
+    "professionals": {
+      "schema": "Professional",
+      "description": "Collection of nursing professionals."
+    }
+  }
+}

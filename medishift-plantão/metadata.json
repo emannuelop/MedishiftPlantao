@@ -1,0 +1,8 @@
+{
+  "name": "CareFlow Plantão",
+  "description": "Sistema intuitivo e responsivo para passagem de plantão de enfermagem com gestão de pacientes e histórico detalhado.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

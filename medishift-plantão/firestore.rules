@@ -1,0 +1,141 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Phase 3: Primitive Definitions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'roberto.mendes@careflow.com.br' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        (
+          exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isBlocked', false) != true && 
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isAdmin', false) == true
+        )
+      );
+    }
+
+    function isApproved() {
+      return isSignedIn() && (
+        request.auth.token.email == 'roberto.mendes@careflow.com.br' ||
+        (
+          exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isBlocked', false) != true &&
+          (
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isAdmin', false) == true ||
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isApproved', false) == true
+          )
+        )
+      );
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Phase 4: Entity Validators
+    function isValidPatient(data) {
+      return data.keys().hasAll(['name', 'birthDate', 'active', 'createdAt']) &&
+             data.name is string && data.name.size() > 0 &&
+             data.birthDate is string &&
+             data.active is bool;
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['email', 'displayName', 'photoURL', 'isAdmin', 'isApproved', 'createdAt']) &&
+             data.email is string && data.displayName is string &&
+             data.isAdmin is bool && data.isApproved is bool;
+    }
+
+    function isValidHandover(data) {
+      return data.get('patientId', '') is string &&
+             data.get('professionalName', '') is string &&
+             data.get('professionalUid', '') == request.auth.uid;
+    }
+
+    function isValidProfessional(data) {
+      return data.get('name', '') is string && data.get('name', '').size() > 0 &&
+             data.get('active', true) is bool;
+    }
+
+    // 1. Patients Collection
+    match /patients/{patientId} {
+      allow read, list, get: if isApproved();
+      allow create, update: if isApproved() && isValidPatient(incoming());
+      allow delete: if isAdmin();
+    }
+
+    // 2. Handovers Collection
+    match /handovers/{handoverId} {
+      allow read, list, get: if isApproved();
+      allow create: if isApproved() && isValidHandover(incoming());
+      allow update: if isAdmin() || (isApproved() && (
+        (existing().get('status', 'Publicada') == 'Rascunho' && 
+         existing().professionalUid == request.auth.uid && 
+         isValidHandover(incoming())) ||
+        (existing().get('status', 'Publicada') == 'Rascunho' && 
+         existing().professionalUid == request.auth.uid && 
+         incoming().get('status', 'Publicada') == 'Publicada' &&
+         isValidHandover(incoming())) ||
+        (existing().get('status', 'Publicada') == 'Publicada' && 
+         existing().professionalUid == request.auth.uid && 
+         incoming().get('status', 'Publicada') == 'Cancelada' &&
+         request.time - existing().get('publishedAt', existing().createdAt) < duration.value(60, 'm'))
+      ));
+      allow delete: if isApproved() && (
+        (existing().get('status', 'Publicada') == 'Rascunho' && existing().professionalUid == request.auth.uid) ||
+        (existing().get('status', 'Publicada') != 'Rascunho' && isAdmin())
+      );
+    }
+
+    // 3. Admins Collection
+    match /admins/{userId} {
+      allow read: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    // 4. Users Collection
+    match /users/{userId} {
+      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow list: if isAdmin();
+      allow create: if isSignedIn() && request.auth.uid == userId && isValidUser(incoming());
+      allow update: if (isAdmin() && isValidUser(incoming())) || 
+                    (isSignedIn() && request.auth.uid == userId && 
+                     incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL']));
+    }
+
+    // 5. Professionals Collection
+    match /professionals/{professionalId} {
+      allow read, list, get: if isSignedIn();
+      allow create, update: if isAdmin() && isValidProfessional(incoming());
+      allow delete: if isAdmin();
+    }
+
+    // 6. Migrations Collection
+    match /migrations/{migrationId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // 7. Config Collection
+    match /config/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
